@@ -1,0 +1,54 @@
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    # Basic logging
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log warn;
+
+    # Upstreams
+    upstream blue {
+        server blue:3000 max_fails=1 fail_timeout=2s;
+    }
+
+    upstream green {
+        server green:3000 backup;
+    }
+
+    # Main server
+    server {
+        listen 8080;
+
+        # Health check endpoint
+        location /healthz {
+            proxy_pass http://$ACTIVE_POOL;
+            proxy_connect_timeout 1s;
+            proxy_read_timeout 3s;
+        }
+
+        # Main application endpoint with failover
+        location / {
+            proxy_pass http://$ACTIVE_POOL;
+
+            # Forward headers from upstream app
+            proxy_set_header X-App-Pool $upstream_http_x_app_pool;
+            proxy_set_header X-Release-Id $upstream_http_x_release_id;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Retry policy
+            proxy_next_upstream error timeout http_5xx;
+            proxy_next_upstream_tries 1;
+
+            # Timeouts for fast failover
+            proxy_connect_timeout 1s;
+            proxy_read_timeout 3s;
+            proxy_send_timeout 3s;
+        }
+    }
+}

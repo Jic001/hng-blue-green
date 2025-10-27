@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  blue:
+    image: ${BLUE_IMAGE}
+    container_name: app_blue
+    environment:
+      - PORT=3000
+      - RELEASE_ID=${RELEASE_ID_BLUE}
+      - APP_POOL=blue
+    ports:
+      - "8081:3000"
+
+  green:
+    image: ${GREEN_IMAGE}
+    container_name: app_green
+    environment:
+      - PORT=3000
+      - RELEASE_ID=${RELEASE_ID_GREEN}
+      - APP_POOL=green
+    ports:
+      - "8082:3000"
+
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: nginx
+    depends_on:
+      - blue
+      - green
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/nginx.conf:ro
+    restart: always
